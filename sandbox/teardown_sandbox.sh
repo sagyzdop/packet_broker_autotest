@@ -4,7 +4,7 @@ set -euo pipefail
 # ==============================================================================
 # teardown_sandbox.sh
 # ------------------------------------------------------------------------------
-# See README.md -> "Sandbox Networking".
+# See CLAUDE.md -> "Sandbox networking".
 #
 # Deleting the "broker_sim" namespace removes every interface inside it
 # (br_internal1, br_external1, br_dpi1). Because veth interfaces are

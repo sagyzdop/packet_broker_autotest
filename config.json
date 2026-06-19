@@ -1,5 +1,5 @@
 {
-  "_comment": "config.json - see README.md 'Configuration Files'. Drives which test groups are active and how. MVP: l2_bypass + dpi_flow (pcp=0 only) enabled; ip_bypass/lag_hash/mirroring deferred (see README.md MVP Scope) and left disabled so the framework runs cleanly without them implemented.",
+  "_comment": "config.json - see CLAUDE.md 'Configuration files'. Drives which test groups are active and how. MVP: l2_bypass + dpi_flow (pcp=0 only) enabled; ip_bypass/lag_hash/mirroring deferred (see CLAUDE.md 'MVP scope') and left disabled so the framework runs cleanly without them implemented.",
 
   "topology": {
     "pairs": [{"internal": "internal1", "external": "external1"}],

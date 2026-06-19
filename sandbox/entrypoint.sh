@@ -4,7 +4,7 @@ set -e
 # ==============================================================================
 # entrypoint.sh
 # ------------------------------------------------------------------------------
-# See README.md -> "Running the Project" and "Sandbox Networking".
+# See CLAUDE.md -> "Running the project" and "Sandbox networking".
 #
 # Container startup sequence:
 #   1. Build the simulated topology (namespace + veth pairs).
@@ -20,7 +20,7 @@ set -e
 #
 # This file is sandbox-only. On real hardware you do not use Docker for
 # this at all (or if you do, a much simpler container without any of the
-# netns/veth setup) -- see README.md "Switching to Real Hardware". You'd
+# netns/veth setup) -- see CLAUDE.md "Switching to real hardware". You'd
 # run `uvicorn api.main:app --host 0.0.0.0 --port 8000` directly.
 # ==============================================================================
 

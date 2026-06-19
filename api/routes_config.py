@@ -1,39 +1,17 @@
-"""
-api/routes_config.py
-=======================
-See README.md -> "Configuration Files" and original spec's "Full System
-Config" section.
+"""api/routes_config.py
 
-WHAT TO IMPLEMENT
--------------------
-GET  /config   -> return the full config.json contents as currently
-                  loaded in `app.state` (not re-read from disk, so it
-                  reflects any prior POST below).
-POST /config   -> accept a full config.json-shaped body, validate it (at
-                  minimum: every interface name referenced exists in the
-                  loaded topology; every test group name is recognized),
-                  then re-run core/test_runner.register_all_tests(...)
-                  (including the collision check) against the NEW
-                  config. For MVP, pick the simplest correct behavior:
-                  stop every running test, re-register, and require the
-                  caller to POST /tests/start-all afterward -- document
-                  this clearly in the response.
-
-NOT IN MVP SCOPE YET
------------------------
-Topology editing (changing interfaces/pairs) via this endpoint -- MVP
-topology is fixed at startup from topology.yaml. Only the `tests` and
-`export` blocks of config.json are safe to hot-reload for now. See
-README.md "MVP Scope".
+GET/POST /config -- see README.md for the route table and CLAUDE.md ->
+"MVP scope" for why POST is deferred: config hot-reload (re-running
+core/test_runner.register_all_tests() against a new config at runtime,
+including the collision check) is intentionally out of MVP scope. Topology
+editing via this endpoint is also out of scope -- MVP topology is fixed at
+startup from topology.yaml; only the `tests`/`export` blocks of config.json
+would ever be safe to hot-reload.
 """
 
-# MINIMAL BOOTSTRAP IMPLEMENTATION
-# ----------------------------------------------------------------------
-# core/test_runner.py's register_all_tests/collision check don't exist
-# yet, so POST can't actually re-register anything. GET reads config.json
-# straight off disk for now (not yet cached on app.state, since there is
-# no startup hook loading it -- see api/main.py). Replace once the
-# topology/test_runner modules are implemented.
+# GET reads config.json straight off disk rather than from app.state, since
+# POST doesn't implement hot-reload yet -- there's nothing on app.state for
+# GET to diverge from.
 import json
 
 from fastapi import APIRouter, HTTPException

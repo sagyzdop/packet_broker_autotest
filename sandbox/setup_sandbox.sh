@@ -4,8 +4,6 @@ set -euo pipefail
 # ==============================================================================
 # setup_sandbox.sh
 # ------------------------------------------------------------------------------
-# See README.md -> "Sandbox Networking" for the full explanation/diagram.
-#
 # Creates ONE Linux network namespace ("broker_sim") and three veth pairs
 # wiring it to the container's default namespace, simulating the physical
 # cabling between the test server and the broker (DUT) described in
@@ -29,7 +27,7 @@ set -euo pipefail
 # left alone rather than erroring out).
 #
 # When real hardware is available, this script is simply never run -- see
-# README.md "Switching to Real Hardware". The framework binds directly to
+# CLAUDE.md -> "Switching to real hardware". The framework binds directly to
 # real NIC names listed in topology.yaml instead of these veth names.
 # ==============================================================================
 

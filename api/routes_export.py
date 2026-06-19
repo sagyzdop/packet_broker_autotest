@@ -1,33 +1,19 @@
-"""
-api/routes_export.py
-=======================
-See README.md and original spec section "Export and Reports". NOT
-required for the MVP dashboard to function -- stub now so the frontend's
-export tab has something real to call later.
+"""api/routes_export.py
 
-WHAT TO IMPLEMENT (can be deferred past MVP, but keep this shape)
-----------------------------------------------------------------------
-POST /export/capture            -> trigger a dump of each interface's
-                                    ring buffer (see core/packet_engine.py
-                                    -- "pushes a copy into the ring
-                                    buffer") to per-interface .pcap files
-                                    + one merged .pcapng; return a job_id.
-GET  /export/capture/{job_id}    -> stream back the resulting .pcapng.
-GET  /export/report              -> build the JSON/Markdown/HTML report
-                                    (original spec "Report Structure")
-                                    from current state_manager contents.
+Export/report routes -- deferred past MVP (see CLAUDE.md -> "MVP scope").
+Stubbed to return HTTP 501 rather than 404, so the frontend's export tab can
+distinguish "not built yet" from "wrong URL".
 
-MVP NOTE
------------
-It's fine for these three routes to return HTTP 501 for now -- just
-don't 404, so the frontend can distinguish "not built yet" from "wrong
-URL" while you build the rest of the system.
+Future shape:
+  POST /export/capture          -> dump each interface's ring buffer (see
+                                    core/packet_engine.py's InterfaceDispatcher)
+                                    to per-interface .pcap files + one merged
+                                    .pcapng; return a job_id.
+  GET  /export/capture/{job_id} -> stream back the resulting .pcapng.
+  GET  /export/report           -> build a JSON/Markdown/HTML report from
+                                    current state_manager contents.
 """
 
-# MINIMAL BOOTSTRAP IMPLEMENTATION
-# ----------------------------------------------------------------------
-# Per the MVP note above, 501 is acceptable here -- these just need to
-# exist so the frontend's export tab gets a real (non-404) response.
 from fastapi import APIRouter, HTTPException
 
 router = APIRouter()

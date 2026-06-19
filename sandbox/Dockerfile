@@ -1,6 +1,6 @@
 # sandbox/Dockerfile
 # ------------------------------------------------------------------------------
-# See README.md -> "Sandbox Networking" and "Running the Project".
+# See CLAUDE.md -> "Sandbox networking" and "Running the project".
 #
 # Base image: python:3.11-slim (Debian-based, so apt-get works) gives us
 # Python + pip without manually installing Python on top of plain Ubuntu.

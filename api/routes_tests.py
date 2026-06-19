@@ -1,34 +1,11 @@
-"""
-api/routes_tests.py
-======================
-See README.md and original spec's REST API table.
+"""api/routes_tests.py
 
-WHAT TO IMPLEMENT
--------------------
-GET  /tests                 -> list every registered test + current
-                                status from state_manager (id, status,
-                                pps, loss_pct, last_result.failures).
-GET  /tests/{id}             -> full detail for one test: its
-                                matcher()/encap/packet_signature() plus
-                                recent TestResult history (keep the last
-                                N in state_manager -- a small ring buffer
-                                of RESULTS, separate from the packet ring
-                                buffer in core/packet_engine.py).
-POST /tests/{id}/start       -> (re)create the asyncio task for one test
-                                if it isn't already running.
-POST /tests/{id}/stop        -> cancel that task; mark status accordingly
-                                in state_manager (e.g. a "STOPPED" status
-                                value beyond OK/FAIL/TIMEOUT).
-POST /tests/start-all        -> core/test_runner.start_all() for every
-                                currently-stopped test.
-POST /tests/stop-all         -> cancel every running task.
-
-(Mounted under the "/api" prefix from api/main.py, so the real paths are
-/api/tests, /api/tests/{id}, etc.)
-
-All handlers reach the running engine/test objects via
-`request.app.state` (set in api/main.py's startup hook) -- never
-re-instantiate anything in a route handler.
+REST routes for listing and controlling registered tests (mounted under the
+"/api" prefix from api/main.py, so the real paths are /api/tests,
+/api/tests/{id}, etc. -- see README.md for the full route table). All
+handlers reach the running engine/test objects via `request.app.state` (set
+in api/main.py's startup hook) -- never re-instantiate anything in a route
+handler.
 """
 
 from dataclasses import asdict

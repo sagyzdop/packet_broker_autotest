@@ -1,21 +1,18 @@
 #!/usr/bin/env python3
-"""
-scripts/smoke_test_l2_bypass.py
-================================
-Manual smoke test for steps 1-5 of README.md's "Implementation Roadmap"
-(core/topology.py, core/packet_builder.py, core/packet_engine.py,
-core/base_test.py + core/matcher.py, tests/test_l2_bypass.py).
+"""scripts/smoke_test_l2_bypass.py
 
-core/test_runner.py and api/main.py's real startup sequence don't exist
-yet (later steps), so this script does by hand what they will eventually
-do automatically: load topology.yaml, build a PacketEngine, build one
-L2BypassTest per protocol in config.json, and run each test once against
-the sandbox's broker_sim.py.
+Manual smoke test for the L2-bypass path (core/topology.py,
+core/packet_builder.py, core/packet_engine.py, core/base_test.py +
+core/matcher.py, tests/test_l2_bypass.py) in isolation, without going
+through the full api/main.py startup sequence: load topology.yaml, build a
+PacketEngine, build one L2BypassTest per protocol in config.json, and run
+each test once against the sandbox's broker_sim.py.
 
 Must run inside the sandbox container (needs AF_PACKET + the
 internal1/external1/dpi1 veth interfaces created by
-sandbox/setup_sandbox.sh) -- see README_TESTING.md for the exact
-commands to bring that up and run this.
+sandbox/setup_sandbox.sh):
+
+    docker compose exec packetbroker python3 -m scripts.smoke_test_l2_bypass
 """
 
 import asyncio

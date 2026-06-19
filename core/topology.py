@@ -1,10 +1,9 @@
-"""
-core/topology.py
-Loads and validates topology.yaml, resolves each interface's real MAC
-address at startup (read /sys/class/net/<ifname>/address), and exposes a
-`Pair` object (internal/external interface names + resolved MACs) per
-configured pair. See README.md -> "Configuration Files". Implement this
-before core/packet_engine.py needs it.
+"""core/topology.py
+
+Loads and validates topology.yaml, resolves each interface's real MAC address
+at startup (reads /sys/class/net/<ifname>/address), and exposes a `Pair`
+object (internal/external interface names + resolved MACs) per configured
+pair. See CLAUDE.md -> "Configuration files".
 """
 
 from __future__ import annotations
@@ -85,7 +84,7 @@ def load_topology(path: str = "topology.yaml") -> Topology:
     dpi_lag = list(interfaces.get("dpi_lag", []))
     dpi_macs = {ifname: resolve_mac(ifname) for ifname in dpi_lag}
 
-    # Not implemented yet (see README.md "MVP Scope") -- expected empty for MVP,
+    # Not implemented yet (see CLAUDE.md "MVP scope") -- expected empty for MVP,
     # but resolved the same way as everything else if ever populated.
     mirroring_lag = list(interfaces.get("mirroring_lag", []))
     steering_lag = list(interfaces.get("steering_lag", []))

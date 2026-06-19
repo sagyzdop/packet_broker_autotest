@@ -1,7 +1,5 @@
 # docker-compose.yml
 # ------------------------------------------------------------------------------
-# See README.md -> "Running the Project" and "Sandbox Networking".
-#
 # Brings up ONE privileged container that:
 #   1. Creates the simulated broker topology (network namespace + veth pairs)
 #      via sandbox/setup_sandbox.sh
@@ -14,10 +12,11 @@
 # tighter security profile, but `privileged: true` is the simplest correct
 # setting for a local dev sandbox.
 #
-# On real hardware you will NOT use this file at all -- see README.md
-# "Switching to Real Hardware". The framework runs directly on the lab
-# Linux box with `uvicorn api.main:app`, with real NICs already present,
-# and nothing in sandbox/ is used.
+# On real hardware you will NOT use this file at all -- the framework runs
+# directly on the lab Linux box with `uvicorn api.main:app`, with real NICs
+# already present, and nothing in sandbox/ is used.
+#
+# See CLAUDE.md -> "Running the project" and "Switching to real hardware".
 # ------------------------------------------------------------------------------
 
 services:

@@ -1,18 +1,15 @@
-"""
-protocols/l2_bypass_list.py
-The canonical list of L2 control-plane protocols (name, dst_mac,
-ethertype) consumed by tests/test_l2_bypass.py's factory function.
-Keep this list in sync with sandbox/broker_sim/broker_config.yaml's
-`bypass_rules.l2_protocols` -- both the framework and the sandbox's
-simulated broker must agree on what should bypass DPI, or
-test_l2_bypass.py will fail against the sandbox for reasons that have
-nothing to do with bugs in your framework code.
+"""protocols/l2_bypass_list.py
 
-See README.md -> "MVP Scope" for which protocols are in scope now
-(LACP/STP/LLDP/CDP) vs deferred (the remaining ~46 from the original
-spec's "L2 Bypass" protocol table).
+The canonical list of L2 control-plane protocols (name, dst_mac, ethertype)
+consumed by tests/test_l2_bypass.py's factory function. Keep this list in
+sync with sandbox/broker_sim/broker_config.yaml's `bypass_rules.l2_protocols`
+-- both the framework and the sandbox's simulated broker must agree on what
+should bypass DPI, or test_l2_bypass.py will fail against the sandbox for
+reasons that have nothing to do with bugs in the framework code.
+
+See CLAUDE.md -> "MVP scope" for which protocols are in scope now.
 """
-# MVP scope (see README.md "MVP Scope"): LACP/STP/LLDP/CDP only. Must match
+# MVP scope: LACP/STP/LLDP/CDP only. Must match
 # sandbox/broker_sim/broker_config.yaml's bypass_rules.l2_protocols exactly --
 # same dst_mac per protocol, same set of protocols.
 L2_BYPASS_PROTOCOLS = [

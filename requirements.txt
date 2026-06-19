@@ -1,5 +1,5 @@
 # requirements.txt
-# See README.md -> "Technology Stack". Minimal MVP dependency set.
+# Minimal MVP dependency set.
 fastapi
 uvicorn[standard]
 scapy

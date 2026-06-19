@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""
-sandbox/broker_sim/broker_sim.py
-===================================
-See README.md -> "Sandbox Networking".
+"""sandbox/broker_sim/broker_sim.py
 
 A deliberately simple stand-in for the real packet broker (the DUT). Runs
 inside the `broker_sim` network namespace (started by sandbox/entrypoint.sh)
@@ -15,17 +12,17 @@ expects from the real device:
   2. Everything else arriving on the internal side is treated as
      DPI-eligible: wrap it in the outer VLAN tag (dpi_vlan_id) and send it
      out the DPI-facing link.
-  3. Whatever comes back on the DPI-facing link (core/dpi_stub.py, once you
-     implement it, echoes it back with PCP set) has that outer VLAN tag
-     stripped and is forwarded out the external side, completing the round
-     trip described in the original spec's "Normal Traffic Flow".
+  3. Whatever comes back on the DPI-facing link (core/dpi_stub.py echoes it
+     back with PCP set) has that outer VLAN tag stripped and is forwarded
+     out the external side, completing the round trip.
 
-This file does NOT exist when real hardware is used -- on real hardware
+This file does not exist when real hardware is used -- on real hardware
 there is a real broker performing this role, wired directly to the test
-server's same internal1/external1/dpi1 interfaces (see README.md
-"Switching to Real Hardware"). It is intentionally simplistic: it does not
-implement PCP=1/2/3 (mirroring/steering) handling, matching current MVP
-scope.
+server's same internal1/external1/dpi1 interfaces. It is intentionally
+simplistic: it does not implement PCP=1/2/3 (mirroring/steering) handling,
+matching current MVP scope.
+
+See CLAUDE.md -> "Sandbox networking" and "Switching to real hardware".
 """
 
 import yaml

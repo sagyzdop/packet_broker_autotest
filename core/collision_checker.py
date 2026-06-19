@@ -1,9 +1,8 @@
-"""
-core/collision_checker.py
-At startup, calls packet_signature() on every registered test and raises
-a clear, specific error if two tests would produce indistinguishable
-packets. See README.md and original spec's "Uniqueness rule" /
-"Packet Uniqueness". Called from core/test_runner.register_all_tests().
+"""core/collision_checker.py
+
+At startup, calls packet_signature() on every registered test and raises a
+clear, specific error if two tests would produce indistinguishable packets.
+Called from core/test_runner.register_all_tests().
 """
 from __future__ import annotations
 
@@ -23,6 +22,6 @@ def check_for_collisions(tests: List) -> None:
                 f"packet_signature collision between "
                 f"'{getattr(other, 'id', repr(other))}' and "
                 f"'{getattr(test, 'id', repr(test))}': both produce signature "
-                f"{dict(signature)!r} -- see README.md 'Uniqueness rule'"
+                f"{dict(signature)!r}"
             )
         seen[key] = test
