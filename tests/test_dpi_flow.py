@@ -67,4 +67,56 @@ debugging: TIMEOUT here usually means a VLAN ID or interface-naming
 mismatch, not a logic bug in the test itself).
 """
 
-# TODO: implement DpiFlowTest
+from __future__ import annotations
+
+import ipaddress
+
+from scapy.layers.inet import IP, UDP
+
+from core.base_test import BaseTest
+from core.matcher import PacketMatcher
+from core.packet_builder import build_eth
+
+# Reserve .1-.9 of ip_base for infra-style addresses; PCP variants 0-3 each
+# get their own deterministic, collision-free src IP starting at .10.
+SRC_IP_OFFSET = 10
+DST_IP_OFFSET = 200
+
+
+class DpiFlowTest(BaseTest):
+    # Overridable, not hardcoded -- injected by core/test_runner.py at
+    # registration time alongside `pair` (see core/base_test.py), since this
+    # test needs topology.yaml's ip_base to compute its assigned IPs.
+    ip_base = "10.0.0.0/24"
+
+    def __init__(self, pcp_value: int = 0):
+        super().__init__()
+        self.pcp_value = pcp_value
+        self.ip_base = DpiFlowTest.ip_base
+
+    def _src_ip(self) -> str:
+        network = ipaddress.ip_network(self.ip_base, strict=False)
+        return str(network.network_address + SRC_IP_OFFSET + self.pcp_value)
+
+    def _dst_ip(self) -> str:
+        network = ipaddress.ip_network(self.ip_base, strict=False)
+        return str(network.network_address + DST_IP_OFFSET)
+
+    def build_packet(self):
+        eth = build_eth(src_mac=self.pair.internal_mac, dst_mac=self.pair.external_mac)
+        return eth / IP(src=self._src_ip(), dst=self._dst_ip()) / UDP(sport=12345, dport=54321)
+
+    def matcher(self) -> PacketMatcher:
+        return PacketMatcher(ip_src=self._src_ip(), ip_dst=self._dst_ip())
+
+    def packet_signature(self) -> dict:
+        return {"ip_src": self._src_ip()}
+
+    def send_interface(self) -> str:
+        return self.pair.internal
+
+    def expect_interface(self) -> str:
+        return self.pair.external
+
+    def __repr__(self) -> str:
+        return f"DpiFlowTest(pcp={self.pcp_value})"

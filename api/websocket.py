@@ -35,14 +35,6 @@ subscribe/fan-out logic in core/state_manager.py, not here -- keep this
 file a thin transport shim.
 """
 
-# MINIMAL BOOTSTRAP IMPLEMENTATION
-# ----------------------------------------------------------------------
-# core/state_manager.py (subscribe/unsubscribe/fan-out) doesn't exist
-# yet, so there is nothing to actually push. This stub just accepts the
-# connection and holds it open (so the frontend's `new WebSocket(...)`
-# doesn't immediately error during sandbox testing) until the client
-# disconnects. Replace the body with the real subscribe/fan-out loop
-# once core/state_manager.py is implemented.
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 router = APIRouter()
@@ -51,10 +43,13 @@ router = APIRouter()
 @router.websocket("/ws/live")
 async def ws_live(websocket: WebSocket):
     await websocket.accept()
+    state_manager = websocket.app.state.state_manager
+    queue = state_manager.subscribe()
     try:
         while True:
-            # No state_manager to subscribe to yet -- just block until the
-            # client disconnects so the socket doesn't immediately close.
-            await websocket.receive_text()
+            event = await queue.get()
+            await websocket.send_json(event)
     except WebSocketDisconnect:
-        return
+        pass
+    finally:
+        state_manager.unsubscribe(queue)

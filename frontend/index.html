@@ -37,41 +37,174 @@
   step, no framework. A single <script> tag in this file is fine -- this
   is a diagnostic tool for you, not a customer-facing product UI.
 -->
-<!--
-  MINIMAL BOOTSTRAP IMPLEMENTATION
-  ----------------------------------
-  core/state_manager.py and the real /api/tests data don't exist yet, so
-  this is just enough to prove the container + sandbox networking setup
-  works end to end (StaticFiles mount, /api/tests roundtrip, /ws/live
-  connects) before building the real dashboard described above.
--->
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <title>packet_broker_autotest</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; background: #0f1115; color: #e6e6e6; }
+    header { display: flex; align-items: center; gap: 16px; padding: 12px 20px; background: #161922; border-bottom: 1px solid #2a2e3a; position: sticky; top: 0; }
+    header h1 { font-size: 16px; margin: 0; }
+    #summary { color: #9aa0ab; font-size: 13px; }
+    #ws-indicator { font-size: 12px; padding: 2px 8px; border-radius: 10px; background: #2a2e3a; color: #9aa0ab; }
+    #ws-indicator.open { background: #16331f; color: #22c55e; }
+    #ws-indicator.closed, #ws-indicator.error { background: #3a1414; color: #ef4444; }
+    .actions { margin-left: auto; display: flex; gap: 8px; }
+    button { background: #2563eb; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+    button#stop-all { background: #b91c1c; }
+    button:hover { opacity: 0.85; }
+    main { padding: 20px; }
+    .pair-section { margin-bottom: 24px; }
+    .pair-section h2 { font-size: 14px; color: #9aa0ab; font-weight: 600; margin: 0 0 8px; }
+    table { width: 100%; border-collapse: collapse; background: #161922; border-radius: 6px; overflow: hidden; }
+    th, td { text-align: left; padding: 8px 12px; font-size: 13px; border-bottom: 1px solid #2a2e3a; }
+    th { color: #9aa0ab; font-weight: 600; }
+    tr.test-row { cursor: pointer; }
+    tr.test-row:hover { background: #1c2030; }
+    .status { font-weight: 700; }
+    .status-OK { color: #22c55e; }
+    .status-FAIL { color: #ef4444; }
+    .status-TIMEOUT { color: #f59e0b; }
+    .status-STOPPED { color: #6b7280; }
+    .status-PENDING { color: #6b7280; }
+  </style>
 </head>
 <body>
-  <h1>packet_broker_autotest</h1>
-  <p>Bootstrap page -- the real dashboard isn't implemented yet.</p>
-  <p>Health: <span id="health">checking...</span></p>
-  <p>WebSocket: <span id="ws-status">connecting...</span></p>
-  <pre id="tests">loading /api/tests ...</pre>
+  <header>
+    <h1>packet_broker_autotest</h1>
+    <span id="summary">loading...</span>
+    <span id="ws-indicator">connecting...</span>
+    <div class="actions">
+      <button id="start-all">Start All</button>
+      <button id="stop-all">Stop All</button>
+    </div>
+  </header>
+  <main id="pairs"></main>
+
   <script>
-    fetch("/health")
-      .then(r => r.json())
-      .then(data => { document.getElementById("health").textContent = JSON.stringify(data); })
-      .catch(err => { document.getElementById("health").textContent = "error: " + err; });
+    const STATUS_GLYPH = { OK: "✓", FAIL: "✗", TIMEOUT: "⏱", STOPPED: "⏸", PENDING: "…" };
 
-    fetch("/api/tests")
-      .then(r => r.json())
-      .then(data => { document.getElementById("tests").textContent = JSON.stringify(data, null, 2); })
-      .catch(err => { document.getElementById("tests").textContent = "error: " + err; });
+    // test_id -> { tr, data }
+    const rows = new Map();
+    let initialLoaded = false;
+    const pendingEvents = [];
 
-    const ws = new WebSocket("ws://" + location.host + "/ws/live");
-    ws.onopen = () => { document.getElementById("ws-status").textContent = "open"; };
-    ws.onclose = () => { document.getElementById("ws-status").textContent = "closed"; };
-    ws.onerror = () => { document.getElementById("ws-status").textContent = "error"; };
+    function statusCell(status) {
+      const glyph = STATUS_GLYPH[status] || "?";
+      return `<span class="status status-${status}">${glyph} ${status}</span>`;
+    }
+
+    function renderRow(tr, t) {
+      const pps = typeof t.pps === "number" ? t.pps.toFixed(2) : (t.pps ?? "-");
+      const loss = typeof t.loss_pct === "number" ? t.loss_pct.toFixed(2) : (t.loss_pct ?? "-");
+      tr.innerHTML = `
+        <td>${t.id}</td>
+        <td>${statusCell(t.status || "PENDING")}</td>
+        <td>${pps}</td>
+        <td>${loss}%</td>
+        <td>${t.running ? "running" : "stopped"}</td>
+      `;
+    }
+
+    function pairKey(pair) {
+      return `${pair.internal} -> ${pair.external}`;
+    }
+
+    function ensureSection(pair) {
+      const key = pairKey(pair);
+      const sectionId = "pair-" + key.replace(/[^a-zA-Z0-9_-]/g, "_");
+      let section = document.getElementById(sectionId);
+      if (section) return section;
+
+      section = document.createElement("div");
+      section.className = "pair-section";
+      section.id = sectionId;
+      section.innerHTML = `
+        <h2>${key}</h2>
+        <table>
+          <thead><tr><th>Test</th><th>Status</th><th>pps</th><th>loss</th><th>state</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      `;
+      document.getElementById("pairs").appendChild(section);
+      return section;
+    }
+
+    function upsertTestRow(t) {
+      let entry = rows.get(t.id);
+      if (!entry) {
+        const section = ensureSection(t.pair || { internal: "?", external: "?" });
+        const tbody = section.querySelector("tbody");
+        const tr = document.createElement("tr");
+        tr.className = "test-row";
+        tr.addEventListener("click", () => {
+          window.location.href = `test_detail.html?id=${encodeURIComponent(t.id)}`;
+        });
+        tbody.appendChild(tr);
+        entry = { tr, data: {} };
+        rows.set(t.id, entry);
+      }
+      entry.data = Object.assign({}, entry.data, t);
+      renderRow(entry.tr, entry.data);
+      updateSummary();
+    }
+
+    function updateSummary() {
+      const total = rows.size;
+      const running = [...rows.values()].filter(e => e.data.running).length;
+      document.getElementById("summary").textContent = `${running} / ${total} running`;
+    }
+
+    function applyEvent(event) {
+      const entry = rows.get(event.test_id);
+      if (!entry) {
+        // Event for a test we haven't rendered a row for yet (e.g. arrived
+        // before the initial GET /api/tests resolved) -- replay once it does.
+        pendingEvents.push(event);
+        return;
+      }
+      upsertTestRow({
+        id: event.test_id,
+        pair: entry.data.pair,
+        running: true,
+        status: event.status,
+        pps: event.pps,
+        loss_pct: event.loss_pct,
+      });
+    }
+
+    function loadInitialTests() {
+      return fetch("/api/tests")
+        .then(r => r.json())
+        .then(list => {
+          list.forEach(upsertTestRow);
+          initialLoaded = true;
+          pendingEvents.splice(0).forEach(applyEvent);
+        })
+        .catch(err => {
+          document.getElementById("summary").textContent = "error loading /api/tests: " + err;
+        });
+    }
+
+    function connectWebSocket() {
+      const ws = new WebSocket("ws://" + location.host + "/ws/live");
+      const indicator = document.getElementById("ws-indicator");
+      ws.onopen = () => { indicator.textContent = "live"; indicator.className = "open"; };
+      ws.onclose = () => { indicator.textContent = "disconnected"; indicator.className = "closed"; };
+      ws.onerror = () => { indicator.textContent = "error"; indicator.className = "error"; };
+      ws.onmessage = (msg) => applyEvent(JSON.parse(msg.data));
+    }
+
+    document.getElementById("start-all").addEventListener("click", () => {
+      fetch("/api/tests/start-all", { method: "POST" }).then(loadInitialTests);
+    });
+    document.getElementById("stop-all").addEventListener("click", () => {
+      fetch("/api/tests/stop-all", { method: "POST" }).then(loadInitialTests);
+    });
+
+    loadInitialTests();
+    connectWebSocket();
   </script>
 </body>
 </html>

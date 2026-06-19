@@ -74,6 +74,22 @@ EDGE CASES
   core/collision_checker.py did its job -- but don't crash if it does;
   deliver to both and log a warning.
 
+POST-IMPLEMENTATION NOTE: AF_PACKET and VLAN tags
+-----------------------------------------------------
+The kernel normalizes every received 802.1Q frame into its "accelerated"
+form before delivering it to AF_PACKET listeners: the VLAN tag is stripped
+out of the actual bytes a plain recv()/recvfrom() sees and moved into SKB
+metadata instead (this is generic core networking-stack behavior, not a
+veth-only or sandbox-only quirk -- tools like tcpdump only LOOK like they
+see the tag in-band because they separately reconstruct it from that same
+metadata). Confirmed by hand with two bare AF_PACKET sockets on an isolated
+veth pair, independent of this codebase. core/dpi_stub.py needs the real
+VLAN ID to demux DPI-eligible traffic, so InterfaceHandle enables
+PACKET_AUXDATA and reconstructs the tag from recvmsg()'s ancillary data
+before anything else (matcher.py, dpi_stub.py, etc.) ever sees the bytes --
+see InterfaceHandle.recv() below. This applies identically to a real NIC,
+not just sandbox veths, so it lives here rather than in sandbox/.
+
 SANDBOX vs REAL HARDWARE
 -------------------------
 Nothing in this file should ever check `topology.mode`. An interface name
@@ -88,12 +104,33 @@ from __future__ import annotations
 import asyncio
 import logging
 import socket
+import struct
 from collections import deque
 from typing import Callable, Deque, Dict
 
 logger = logging.getLogger(__name__)
 
 ETH_P_ALL = 0x0003
+
+# sockaddr_ll's sll_pkttype value for a frame this socket itself transmitted.
+# AF_PACKET sockets see traffic in BOTH directions on a bound interface, so
+# without filtering this out, anything that both sends AND subscribes on the
+# same interface (core/dpi_stub.py, sending its echo back out the same dpi
+# interface it listens on) would re-receive and re-process its own frame --
+# see InterfaceHandle.recv().
+PACKET_OUTGOING = 4
+
+# Not exposed by Python's socket module by name, but stable across Linux
+# versions -- see linux/if_packet.h.
+SOL_PACKET = 263
+PACKET_AUXDATA = 8
+TP_STATUS_VLAN_VALID = 0x10
+TP_STATUS_VLAN_TPID_VALID = 0x40
+# struct tpacket_auxdata { u32 tp_status, tp_len, tp_snaplen; u16 tp_mac,
+# tp_net, tp_vlan_tci, tp_vlan_tpid; } -- no padding, all fields naturally
+# aligned.
+_AUXDATA_FMT = "=IIIHHHH"
+_AUXDATA_LEN = struct.calcsize(_AUXDATA_FMT)
 
 
 class InterfaceHandle:
@@ -109,12 +146,46 @@ class InterfaceHandle:
             raise RuntimeError(
                 f"interface '{ifname}' could not be opened (check topology.yaml): {exc}"
             ) from exc
+        # See "POST-IMPLEMENTATION NOTE: AF_PACKET and VLAN tags" above --
+        # needed to recover VLAN tags the kernel strips out of the raw bytes.
+        self._sock.setsockopt(SOL_PACKET, PACKET_AUXDATA, 1)
 
     def send(self, raw_bytes: bytes) -> None:
         self._sock.send(raw_bytes)
 
     def recv(self) -> bytes:
-        return self._sock.recv(65535)
+        """Returns the next frame's raw bytes, or b"" if it was this socket's
+        OWN outgoing traffic looped back by the kernel (see PACKET_OUTGOING
+        above) -- InterfaceDispatcher._on_data() already treats b"" as "nothing
+        to dispatch this round" (same handling as a 0-byte real recv()).
+
+        Reinserts the 802.1Q tag the kernel normalizes out of the wire bytes
+        (see this module's "AF_PACKET and VLAN tags" note) using PACKET_AUXDATA
+        ancillary data, so every consumer downstream (core/matcher.py,
+        core/dpi_stub.py, ...) sees the frame exactly as it appeared on the
+        wire -- single VLAN tag only, matching this codebase's current MVP
+        scope (no QinQ/double-tagging).
+        """
+        data, ancdata, _flags, addr = self._sock.recvmsg(65535, socket.CMSG_SPACE(_AUXDATA_LEN))
+        pkttype = addr[2]
+        if pkttype == PACKET_OUTGOING:
+            return b""
+
+        for level, cmsg_type, cmsg_data in ancdata:
+            if level != SOL_PACKET or cmsg_type != PACKET_AUXDATA:
+                continue
+            tp_status, _tp_len, _tp_snaplen, _tp_mac, _tp_net, tp_vlan_tci, tp_vlan_tpid = struct.unpack(
+                _AUXDATA_FMT, cmsg_data[:_AUXDATA_LEN]
+            )
+            if not (tp_status & TP_STATUS_VLAN_VALID):
+                break
+            tpid = tp_vlan_tpid if (tp_status & TP_STATUS_VLAN_TPID_VALID) else 0x8100
+            # dst(6) + src(6) already at data[:12]; everything from data[12:]
+            # is the original ethertype + payload, with the tag missing.
+            data = data[:12] + struct.pack("!HH", tpid, tp_vlan_tci) + data[12:]
+            break
+
+        return data
 
     def fileno(self) -> int:
         return self._sock.fileno()
@@ -151,7 +222,11 @@ class InterfaceDispatcher:
             return
 
         if not data:
-            logger.debug("recv() returned 0 bytes on %s (interface down?)", self.ifname)
+            logger.debug(
+                "recv() returned 0 bytes on %s (interface down, or this was our "
+                "own outgoing frame filtered by PACKET_OUTGOING)",
+                self.ifname,
+            )
             return
 
         self.ring_buffer.append(data)
@@ -205,3 +280,9 @@ class PacketEngine:
             return self._dispatchers[ifname]
         except KeyError:
             raise KeyError(f"no interface '{ifname}' configured in topology.yaml") from None
+
+    def close_all(self) -> None:
+        """Closes every underlying AF_PACKET socket -- called from api/main.py's
+        shutdown hook so fds don't leak across container restarts."""
+        for dispatcher in self._dispatchers.values():
+            dispatcher.close()

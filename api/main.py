@@ -59,27 +59,10 @@ is implemented correctly -- a classic flaky-looking bug that is actually
 just a startup race. Awaiting each step strictly in sequence avoids it.
 """
 
-# MINIMAL BOOTSTRAP IMPLEMENTATION
-# ----------------------------------------------------------------------
-# This is intentionally NOT the full implementation described above. The
-# real startup sequence (topology.py -> PacketEngine -> DpiStub ->
-# register_all_tests -> start_all) depends on core/ modules that are
-# still just docstring specs (see CLAUDE.md "Project state"). Wiring
-# that in now would just crash on import.
-#
-# The goal here is the minimum needed to bring `docker compose up` to a
-# healthy, browsable state so the sandbox networking setup (veth pairs,
-# broker_sim.py) can be verified BEFORE the real pipeline exists:
-#   - `app` importable by uvicorn (fixes "Attribute app not found")
-#   - /health for a fast liveness check
-#   - routers mounted under /api (each currently returns placeholder /
-#     501 data -- see their own TODO docstrings)
-#   - /ws/live mounted (placeholder -- no state_manager yet)
-#   - static frontend mounted last so it doesn't shadow /api routes
-#
-# Replace this block with the real startup/shutdown hooks once
-# core/topology.py through core/test_runner.py are implemented, per the
-# "Implementation order" section of CLAUDE.md.
+import asyncio
+import json
+import logging
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
@@ -87,6 +70,13 @@ from api.routes_tests import router as tests_router
 from api.routes_config import router as config_router
 from api.routes_export import router as export_router
 from api.websocket import router as ws_router
+from core.dpi_stub import DpiStub
+from core.packet_engine import PacketEngine
+from core.state_manager import StateManager
+from core.test_runner import register_all_tests, start_all
+from core.topology import load_topology
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="packet_broker_autotest")
 
@@ -94,6 +84,60 @@ app.include_router(tests_router, prefix="/api")
 app.include_router(config_router, prefix="/api")
 app.include_router(export_router, prefix="/api")
 app.include_router(ws_router)  # ws://host/ws/live -- no /api prefix
+
+
+@app.on_event("startup")
+async def startup():
+    loop = asyncio.get_running_loop()
+
+    # 1. Parse topology.yaml -> build PacketEngine -> start all dispatchers.
+    topology = load_topology("topology.yaml")
+    with open("config.json") as f:
+        config = json.load(f)
+
+    engine = PacketEngine(topology)
+    engine.start_all(loop)
+
+    # 2. Construct DpiStub over the DPI interfaces, start its run() loop.
+    dpi_stub = DpiStub(engine, topology.dpi_lag, topology.dpi_vlan_id)
+    dpi_task = loop.create_task(dpi_stub.run())
+
+    # 3. register_all_tests(...) -- includes the collision check.
+    tests = register_all_tests(config, topology, engine, dpi_stub)
+
+    state_manager = StateManager()
+    for test in tests:
+        state_manager.register(test.id)
+
+    # 4. start_all(...) -- only after steps 1-3 succeed.
+    tasks, semaphore = start_all(
+        tests, engine, state_manager, loop, topology.parallel_limit, topology.send_interval_ms
+    )
+
+    app.state.topology = topology
+    app.state.config = config
+    app.state.engine = engine
+    app.state.dpi_stub = dpi_stub
+    app.state.dpi_task = dpi_task
+    app.state.tests = {test.id: test for test in tests}
+    app.state.state_manager = state_manager
+    app.state.tasks = tasks
+    app.state.semaphore = semaphore
+    app.state.loop = loop
+
+    logger.info("startup complete: %d test(s) registered and running", len(tests))
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    for task in getattr(app.state, "tasks", {}).values():
+        task.cancel()
+    dpi_task = getattr(app.state, "dpi_task", None)
+    if dpi_task is not None:
+        dpi_task.cancel()
+    engine = getattr(app.state, "engine", None)
+    if engine is not None:
+        engine.close_all()
 
 
 @app.get("/health")

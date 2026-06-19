@@ -33,6 +33,7 @@ class Topology:
     dpi_macs: Dict[str, str]
     mirroring_lag: List[str]
     steering_lag: List[str]
+    dpi_vlan_id: int
     ip_base: str
     parallel_limit: int
     send_interval_ms: int
@@ -96,6 +97,7 @@ def load_topology(path: str = "topology.yaml") -> Topology:
         dpi_macs=dpi_macs,
         mirroring_lag=mirroring_lag,
         steering_lag=steering_lag,
+        dpi_vlan_id=raw.get("dpi_vlan_id", 999),
         ip_base=raw.get("ip_base", "10.0.0.0/24"),
         parallel_limit=raw.get("parallel_limit", 10),
         send_interval_ms=raw.get("send_interval_ms", 1000),

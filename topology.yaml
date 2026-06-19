@@ -27,6 +27,13 @@ interfaces:
   mirroring_lag: []   # not implemented yet (see README.md "MVP Scope")
   steering_lag: []    # not implemented yet (see README.md "MVP Scope")
 
+# Outer VLAN ID core/dpi_stub.py re-adds before echoing a frame back out the
+# DPI link. Must match sandbox/broker_sim/broker_config.yaml's dpi_vlan_id
+# exactly (see that file's comment) -- otherwise broker_sim.py won't
+# recognize the echoed frame as DPI-return traffic and tests/test_dpi_flow.py
+# will TIMEOUT instead of FAIL.
+dpi_vlan_id: 999
+
 # IP addresses for DPI-flow test traffic are drawn from this subnet.
 ip_base: "10.0.0.0/24"
 
