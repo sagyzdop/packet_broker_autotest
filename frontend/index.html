@@ -1,0 +1,77 @@
+<!--
+  frontend/index.html
+  ======================
+  See README.md -> "Architecture" and original spec section "Main Page --
+  Live Dashboard".
+
+  WHAT THIS FILE OWNS
+  --------------------
+  The live dashboard: connects to ws://<host>/ws/live (api/websocket.py)
+  and renders the status of every registered test as it updates, in real
+  time, with no polling.
+
+  WHAT TO IMPLEMENT
+  --------------------
+  1. On page load: GET /api/tests to render the initial list of tests --
+     don't wait for the first websocket event, since there may be a
+     short delay before any test completes its first iteration.
+  2. Open `new WebSocket("ws://" + location.host + "/ws/live")`.
+  3. On each message (JSON: {test_id, status, pps, loss_pct, timestamp}):
+     find or create a row for test_id, update its status indicator
+     (OK / FAIL / TIMEOUT -- see original spec's dashboard mockup for the
+     glyphs used) and its pps/loss% text.
+  4. Group rows by pair (internal/external) -- for MVP there is only one
+     pair, so this can render as a single section, but read pair names
+     from the /api/tests response rather than hardcoding "one pair ever";
+     a second pair (test_isolation.py, deferred) will need this later.
+  5. A visible top bar with total running test count and
+     [Start All] / [Stop All] buttons wired to POST /api/tests/start-all
+     and /api/tests/stop-all (api/routes_tests.py).
+  6. Clicking a test row should navigate to
+     test_detail.html?id=<test_id> (not required for the MVP dashboard
+     to be useful, but leave the hook in place -- see frontend/test_detail.html).
+
+  KEEP IT PLAIN
+  -----------------
+  Per the original spec's tech stack choice: plain HTML + JS, no build
+  step, no framework. A single <script> tag in this file is fine -- this
+  is a diagnostic tool for you, not a customer-facing product UI.
+-->
+<!--
+  MINIMAL BOOTSTRAP IMPLEMENTATION
+  ----------------------------------
+  core/state_manager.py and the real /api/tests data don't exist yet, so
+  this is just enough to prove the container + sandbox networking setup
+  works end to end (StaticFiles mount, /api/tests roundtrip, /ws/live
+  connects) before building the real dashboard described above.
+-->
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>packet_broker_autotest</title>
+</head>
+<body>
+  <h1>packet_broker_autotest</h1>
+  <p>Bootstrap page -- the real dashboard isn't implemented yet.</p>
+  <p>Health: <span id="health">checking...</span></p>
+  <p>WebSocket: <span id="ws-status">connecting...</span></p>
+  <pre id="tests">loading /api/tests ...</pre>
+  <script>
+    fetch("/health")
+      .then(r => r.json())
+      .then(data => { document.getElementById("health").textContent = JSON.stringify(data); })
+      .catch(err => { document.getElementById("health").textContent = "error: " + err; });
+
+    fetch("/api/tests")
+      .then(r => r.json())
+      .then(data => { document.getElementById("tests").textContent = JSON.stringify(data, null, 2); })
+      .catch(err => { document.getElementById("tests").textContent = "error: " + err; });
+
+    const ws = new WebSocket("ws://" + location.host + "/ws/live");
+    ws.onopen = () => { document.getElementById("ws-status").textContent = "open"; };
+    ws.onclose = () => { document.getElementById("ws-status").textContent = "closed"; };
+    ws.onerror = () => { document.getElementById("ws-status").textContent = "error"; };
+  </script>
+</body>
+</html>

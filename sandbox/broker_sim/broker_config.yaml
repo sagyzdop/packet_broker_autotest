@@ -1,0 +1,29 @@
+# sandbox/broker_sim/broker_config.yaml
+# ------------------------------------------------------------------------------
+# See README.md -> "Sandbox Networking". Defines the simulated broker's
+# behavior. Keep `l2_protocols` here in sync with protocols/l2_bypass_list.py
+# -- both broker_sim.py and your real test framework need to agree on which
+# protocols bypass DPI, or test_l2_bypass.py will fail against the sandbox
+# for reasons that have nothing to do with your framework code.
+# ------------------------------------------------------------------------------
+
+# Outer VLAN ID the simulated broker adds before sending traffic to the DPI
+# link, and strips on the way back. core/dpi_stub.py must re-add this same
+# VLAN ID when it echoes a packet back, or broker_sim won't recognize it.
+dpi_vlan_id: 999
+
+bypass_rules:
+  l2_protocols:
+    - name: LACP
+      dst_mac: "01:80:c2:00:00:02"
+      ethertype: "0x8809"
+    - name: STP
+      dst_mac: "01:80:c2:00:00:00"
+    - name: LLDP
+      dst_mac: "01:80:c2:00:00:0e"
+      ethertype: "0x88cc"
+    - name: CDP
+      dst_mac: "01:00:0c:cc:cc:cc"
+
+  # Not implemented yet -- see README.md "MVP Scope" (tests/test_ip_bypass.py).
+  ip_rules: []

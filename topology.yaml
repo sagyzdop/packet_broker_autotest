@@ -1,0 +1,35 @@
+# topology.yaml
+# ------------------------------------------------------------------------------
+# See README.md -> "Configuration Files".
+#
+# Describes the interfaces the framework binds to. In sandbox mode these
+# are veth interfaces created by sandbox/setup_sandbox.sh; on real hardware
+# they are real NIC names. core/packet_engine.py treats them identically
+# either way -- it never branches on `mode` below, it just opens whatever
+# interface names are listed here.
+#
+# MVP SCOPE: one internal/external pair, one DPI link, no mirroring or
+# steering interfaces (mirroring_lag / steering_lag are present but empty
+# -- they are not implemented yet per current scope).
+#
+# SWITCHING TO REAL HARDWARE: change `mode` to "hardware" and replace the
+# veth names below with real NIC names (e.g. ens5f0). Nothing else in this
+# repo needs to change.
+# ------------------------------------------------------------------------------
+
+mode: sandbox   # "sandbox" (veth/netns, see sandbox/) or "hardware" (real NICs)
+
+interfaces:
+  pairs:
+    - internal: internal1
+      external: external1
+  dpi_lag: [dpi1]
+  mirroring_lag: []   # not implemented yet (see README.md "MVP Scope")
+  steering_lag: []    # not implemented yet (see README.md "MVP Scope")
+
+# IP addresses for DPI-flow test traffic are drawn from this subnet.
+ip_base: "10.0.0.0/24"
+
+parallel_limit: 10
+send_interval_ms: 1000
+capture_buffer: 1000

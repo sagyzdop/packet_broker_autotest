@@ -1,0 +1,50 @@
+{
+  "_comment": "config.json - see README.md 'Configuration Files'. Drives which test groups are active and how. MVP: l2_bypass + dpi_flow (pcp=0 only) enabled; ip_bypass/lag_hash/mirroring deferred (see README.md MVP Scope) and left disabled so the framework runs cleanly without them implemented.",
+
+  "topology": {
+    "pairs": [{"internal": "internal1", "external": "external1"}],
+    "dpi_lag": ["dpi1"],
+    "mirroring_lag": [],
+    "steering_lag": []
+  },
+
+  "tests": {
+    "l2_bypass": {
+      "enabled": true,
+      "protocols": ["LACP", "STP", "LLDP", "CDP"],
+      "encap_mode": "smoke"
+    },
+    "dpi_flow": {
+      "enabled": true,
+      "pcp_variants": [0],
+      "encap_mode": "smoke"
+    },
+    "ip_bypass": {
+      "enabled": false,
+      "encap_mode": "smoke"
+    },
+    "lag_hash": {
+      "enabled": false,
+      "encap_mode": "smoke"
+    },
+    "mirroring": {
+      "enabled": false,
+      "encap_mode": "smoke"
+    }
+  },
+
+  "export": {
+    "captures": {
+      "internal1": 1000,
+      "external1": 1000,
+      "dpi1": 500
+    },
+    "report": {
+      "include_failing_detail": true,
+      "include_passing_detail": false,
+      "include_filters": true,
+      "include_encap_coverage": false,
+      "format": "json"
+    }
+  }
+}

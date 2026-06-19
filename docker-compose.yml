@@ -1,0 +1,33 @@
+# docker-compose.yml
+# ------------------------------------------------------------------------------
+# See README.md -> "Running the Project" and "Sandbox Networking".
+#
+# Brings up ONE privileged container that:
+#   1. Creates the simulated broker topology (network namespace + veth pairs)
+#      via sandbox/setup_sandbox.sh
+#   2. Runs sandbox/broker_sim/broker_sim.py as the stand-in DUT (broker)
+#   3. Runs the actual test framework (uvicorn / FastAPI) on port 8000
+#
+# `privileged: true` is required because creating network namespaces and
+# veth pairs needs CAP_SYS_ADMIN/CAP_NET_ADMIN, and AF_PACKET sockets need
+# CAP_NET_RAW. This can be narrowed later with `cap_add` if you want a
+# tighter security profile, but `privileged: true` is the simplest correct
+# setting for a local dev sandbox.
+#
+# On real hardware you will NOT use this file at all -- see README.md
+# "Switching to Real Hardware". The framework runs directly on the lab
+# Linux box with `uvicorn api.main:app`, with real NICs already present,
+# and nothing in sandbox/ is used.
+# ------------------------------------------------------------------------------
+
+services:
+  packetbroker:
+    build:
+      context: .
+      dockerfile: sandbox/Dockerfile
+    container_name: packetbroker_autotest
+    privileged: true
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
