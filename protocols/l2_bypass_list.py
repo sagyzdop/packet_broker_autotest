@@ -12,4 +12,12 @@ See README.md -> "MVP Scope" for which protocols are in scope now
 (LACP/STP/LLDP/CDP) vs deferred (the remaining ~46 from the original
 spec's "L2 Bypass" protocol table).
 """
-# TODO: define L2_BYPASS_PROTOCOLS = [{"name": ..., "dst_mac": ..., "ethertype": ...}, ...]
+# MVP scope (see README.md "MVP Scope"): LACP/STP/LLDP/CDP only. Must match
+# sandbox/broker_sim/broker_config.yaml's bypass_rules.l2_protocols exactly --
+# same dst_mac per protocol, same set of protocols.
+L2_BYPASS_PROTOCOLS = [
+    {"name": "LACP", "dst_mac": "01:80:c2:00:00:02", "ethertype": 0x8809},
+    {"name": "STP", "dst_mac": "01:80:c2:00:00:00", "ethertype": None},
+    {"name": "LLDP", "dst_mac": "01:80:c2:00:00:0e", "ethertype": 0x88CC},
+    {"name": "CDP", "dst_mac": "01:00:0c:cc:cc:cc", "ethertype": None},
+]
